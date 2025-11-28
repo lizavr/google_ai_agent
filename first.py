@@ -40,12 +40,6 @@ runner = InMemoryRunner(agent=root_agent)
 
 print("✅ Runner created.")
 
-
-# response = await runner.run_debug(
-#     "What is Agent Development Kit from Google? What languages is the SDK available in?"
-# )
-
-
 async def main():
     print("start agent")
     response = await runner.run_debug( "What is Agent Development Kit from Google? What languages is the SDK available in?")
@@ -62,29 +56,7 @@ async def main():
         
     print("*************************************************************************************************************************")
 
-    # print("--- Ответ Агента (маркированный список) ---")
 
-    # if response:
-    #     # 1. Берем первый (и основной) Event из списка ответов
-    #     main_event = response[0]
-        
-    #     # 2. Проверяем, есть ли в этом Event части с контентом
-    #     if hasattr(main_event.content, 'parts') and main_event.content.parts:
-    #         # 3. Перебираем все части контента (Part)
-    #         for part in main_event.content.parts:
-    #             # 4. Выводим текст каждой части с форматированием звездочкой
-    #             #    .text - это чистый текст
-    #             print(f"* {part.text}")
-    #     else:
-    #         print("* Не удалось извлечь контент из ответа агента.")
-            
-    # else:
-    #     print("* Агент не вернул ответа.")
-        
-    # print("------------------------------------------")
-
-
-# await run_query()
 
 if __name__ == "__main__":
     asyncio.run(main())
