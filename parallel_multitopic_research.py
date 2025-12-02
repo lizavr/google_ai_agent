@@ -125,7 +125,7 @@ async def main_run():
 if __name__ =="__main__":
     results = asyncio.run(main_run())
     print("\n--- Ответ Runner ---")
-    print(result)
+    print(results)
     print("---------------------")
 
 
