@@ -84,9 +84,9 @@ def get_exchange_rate(base_currency: str, target_currency: str) -> dict:
 
     Args:
         base_currency: The ISO 4217 currency code of the currency you
-                       are converting from (e.g., "USD").
+                    are converting from (e.g., "USD").
         target_currency: The ISO 4217 currency code of the currency you
-                         are converting to (e.g., "EUR").
+                    are converting to (e.g., "EUR").
 
     Returns:
         Dictionary with status and rate information.
@@ -161,3 +161,104 @@ if __name__ =="__main__":
     print("\n--- answer ---")
     print(result)
     print("---------------------")
+
+
+
+# Improving Agent Reliability with Code¶
+# The agent's instruction says "calculate the final amount after fees" but LLMs aren't always reliable at math. 
+# They might make calculation errors or use inconsistent formulas.
+
+# 💡 Solution: Let's ask our agent to generate a Python code to do the math, and run it to give us the final result! 
+# Code execution is much more reliable than having the LLM try to do math in its head!
+
+calculation_agent = LlmAgent(
+    name="CalculationAgent",
+    model=Gemini(model="gemini-2.5-flash-lite", retry_options=retry_config),
+    instruction="""You are a specialized calculator that ONLY responds with Python code. You are forbidden from providing any text, explanations, or conversational responses.
+
+    Your task is to take a request for a calculation and translate it into a single block of Python code that calculates the answer.
+
+     **RULES:**
+    1.  Your output MUST be ONLY a Python code block.
+    2.  Do NOT write any text before or after the code block.
+    3.  The Python code MUST calculate the result.
+    4.  The Python code MUST print the final result to stdout.
+    5.  You are PROHIBITED from performing the calculation yourself. Your only job is to generate the code that will perform the calculation.
+    
+    Failure to follow these rules will result in an error.
+    """,
+    code_executor=BuiltInCodeExecutor(),  # Use the built-in Code Executor Tool. This gives the agent code execution capabilities
+)
+
+
+enhanced_currency_agent = LlmAgent(
+    name="enhanced_currency_agent",
+    model=Gemini(model="gemini-2.5-flash-lite", retry_options=retry_config),
+    # Updated instruction
+    instruction="""You are a smart currency conversion assistant. You must strictly follow these steps and use the available tools.
+
+    For any currency conversion request:
+
+    1. Get Transaction Fee: Use the get_fee_for_payment_method() tool to determine the transaction fee.
+    2. Get Exchange Rate: Use the get_exchange_rate() tool to get the currency conversion rate.
+    3. Error Check: After each tool call, you must check the "status" field in the response. If the status is "error", you must stop and clearly explain the issue to the user.
+    4. Calculate Final Amount (CRITICAL): You are strictly prohibited from performing any arithmetic calculations yourself. You must use the calculation_agent tool to generate Python code that calculates the final converted amount. This 
+        code will use the fee information from step 1 and the exchange rate from step 2.
+    5. Provide Detailed Breakdown: In your summary, you must:
+       * State the final converted amount.
+       * Explain how the result was calculated, including:
+           * The fee percentage and the fee amount in the original currency.
+           * The amount remaining after deducting the fee.
+           * The exchange rate applied.
+    """,
+    tools=[
+        get_fee_for_payment_method,
+        get_exchange_rate,
+        AgentTool(agent=calculation_agent),  # Using another agent as a tool!
+    ],
+)
+
+print("✅ Enhanced currency agent created")
+print("🎯 New capability: Delegates calculations to specialist agent")
+print("🔧 Tool types used:")
+print("  • Function Tools (fees, rates)")
+print("  • Agent Tool (calculation specialist)")
+
+enhanced_runner = InMemoryRunner(agent=enhanced_currency_agent)
+
+async def run_second():
+    response = await enhanced_runner.run_debug(
+    "Convert 1,250 USD to INR using a Bank Transfer. Show me the precise calculation."
+)
+    return response
+
+if __name__ =="__main__":
+    result = asyncio.run(run_second())
+    print("\n--- answer ---")
+    print(result)
+    print("---------------------")
+
+
+# When the Currency agent calls the CalculationAgent, it passes in the generated Python code
+# The CalculationAgent in turn used the BuiltInCodeExecutor to run the code and gave us precise calculations 
+# instead of LLM guesswork!
+
+show_python_code_and_result(result)
+
+
+# 3.3: Agent Tools vs Sub-Agents: What's the Difference?¶
+# This is a common question! Both involve using multiple agents, but they work very differently:
+
+# Agent Tools (what we're using):
+
+# Agent A calls Agent B as a tool
+# Agent B's response goes back to Agent A
+# Agent A stays in control and continues the conversation
+# Use case: Delegation for specific tasks (like calculations)
+# Sub-Agents (different pattern):
+
+# Agent A transfers control completely to Agent B
+# Agent B takes over and handles all future user input
+# Agent A is out of the loop
+# Use case: Handoff to specialists (like customer support tiers)
+# In our currency example: We want the currency agent to get calculation results and continue working with them, so we use Agent Tools, not sub-agents.
